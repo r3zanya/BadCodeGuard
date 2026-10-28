@@ -1,0 +1,16 @@
+# BadCode Guard: встроенные правила. Свои правила (*.bcg) кладите в папку signatures.
+#
+# rule Имя {
+#   threat = "Название угрозы"     необязательно
+#   maxsize = 4096                 необязательно, только файлы не больше N байт
+#   $a = "текст" nocase
+#   $b = { 4D 5A ?? 00 }           байты, ?? = любой байт
+#   condition = any | all | 2
+# }
+
+rule EICAR {
+  threat = "EICAR-Test-File"
+  maxsize = 1024
+  $a = "EICAR-STANDARD-ANTIVIRUS-TEST-FILE"
+  condition = any
+}

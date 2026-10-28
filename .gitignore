@@ -1,0 +1,30 @@
+# Build output
+/build/
+/build-*/
+/dist/
+/dist-test/
+/out/
+/release/
+CMakeUserPresets.json
+*.user
+*.autosave
+
+# Editors and OS
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+
+# Never commit signing material or keys
+*.pfx
+*.p12
+*.snk
+*.pem
+*.key
+*.cer
+secrets.*
+.env
+
+# Logs and local data
+*.log

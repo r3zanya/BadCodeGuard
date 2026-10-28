@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="icons/app.png">icons/app.png</file>
+        <file alias="icons/symbol.png">icons/symbol.png</file>
+        <file alias="icons/chevron.svg">icons/chevron.svg</file>
+        <file alias="signatures/hashes.txt">signatures/hashes.txt</file>
+        <file alias="signatures/rules.bcg">signatures/rules.bcg</file>
+        <file alias="scripts/sysinfo.ps1">scripts/sysinfo.ps1</file>
+    </qresource>
+</RCC>

@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: Visual Studio environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        shell: pwsh
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Engine tests
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
+          .\build\bcg_tests.exe
+
+      - name: Package (unsigned build artifact)
+        shell: pwsh
+        env:
+          QT_DIR: ${{ env.QT_ROOT_DIR }}
+        run: ./tools/package.ps1 -OutDir release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BadCodeGuard-win64
+          path: |
+            release/*.zip
+            release/SHA256SUMS.txt

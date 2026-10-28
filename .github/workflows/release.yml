@@ -1,0 +1,69 @@
+name: release
+
+# Runs when a tag like v0.3.0 is pushed: builds, tests, signs (if a certificate
+# is configured), and attaches the zip and its checksum to a GitHub release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      BCG_PFX_BASE64: ${{ secrets.BCG_PFX_BASE64 }}
+      BCG_PFX_PASSWORD: ${{ secrets.BCG_PFX_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: Visual Studio environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Check that the tag matches the version in CMakeLists.txt
+        shell: pwsh
+        run: |
+          $cmake = Get-Content CMakeLists.txt -Raw
+          if ($cmake -notmatch 'project\(BadCodeGuard\s+VERSION\s+([0-9.]+)') { throw 'version not found' }
+          if ("v$($Matches[1])" -ne '${{ github.ref_name }}') {
+            throw "Tag ${{ github.ref_name }} does not match CMake version $($Matches[1])"
+          }
+
+      - name: Build and test
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR"
+          cmake --build build
+          .\build\bcg_tests.exe
+
+      - name: Package and sign
+        shell: pwsh
+        env:
+          QT_DIR: ${{ env.QT_ROOT_DIR }}
+        run: |
+          if ($env:BCG_PFX_BASE64) {
+            $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:BCG_PFX_BASE64))
+            ./tools/package.ps1 -OutDir release -Sign -PfxFile $pfx
+            Remove-Item $pfx -Force
+          } else {
+            Write-Host '::warning::No signing certificate configured (secret BCG_PFX_BASE64). Building an UNSIGNED release.'
+            ./tools/package.ps1 -OutDir release
+          }
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.zip
+            release/SHA256SUMS.txt
+          generate_release_notes: true
