@@ -150,7 +150,7 @@ QStringList ExclusionList::toStrings() const
     QStringList out;
     QReadLocker lock(&m_lock);
     for (const Exclusion& e : m_items)
-        out << QStringLiteral("%1|%2").arg(QLatin1Char(kTags[e.type]), e.value);
+        out << QString(QLatin1Char(kTags[e.type])) + QLatin1Char('|') + e.value;
     return out;
 }
 
