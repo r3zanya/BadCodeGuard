@@ -308,9 +308,41 @@ void testSecure()
     check(bcg::secure::readSecret(ini, QStringLiteral("k2")) == secret, "write then read round-trips");
 }
 
+// With the debug privilege enabled (CI runners run as an administrator that has it)
+// Windows ignores the process's access list, so the protection cannot be observed.
+bool debugPrivilegeEnabled()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+        return false;
+    LUID luid{};
+    bool enabled = false;
+    if (LookupPrivilegeValueW(nullptr, SE_DEBUG_NAME, &luid)) {
+        DWORD size = 0;
+        GetTokenInformation(token, TokenPrivileges, nullptr, 0, &size);
+        QByteArray buffer(int(size), 0);
+        if (GetTokenInformation(token, TokenPrivileges, buffer.data(), size, &size)) {
+            const auto* privileges = reinterpret_cast<const TOKEN_PRIVILEGES*>(buffer.constData());
+            for (DWORD i = 0; i < privileges->PrivilegeCount; ++i) {
+                const LUID_AND_ATTRIBUTES& p = privileges->Privileges[i];
+                if (p.Luid.LowPart == luid.LowPart && p.Luid.HighPart == luid.HighPart)
+                    enabled = (p.Attributes & SE_PRIVILEGE_ENABLED) != 0;
+            }
+        }
+    }
+    CloseHandle(token);
+    return enabled;
+}
+
 void testSelfProtect()
 {
     QTextStream(stdout) << "Self protection\n";
+    if (debugPrivilegeEnabled()) {
+        QTextStream(stdout) << "  skip  the process has the debug privilege, which bypasses access lists\n";
+        // Still make sure switching it on and off works.
+        check(bcg::selfprotect::enable() && bcg::selfprotect::disable(), "protection can be switched on and off");
+        return;
+    }
     const DWORD pid = GetCurrentProcessId();
     HANDLE before = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
     check(before != nullptr, "before: the process can be opened for termination");
